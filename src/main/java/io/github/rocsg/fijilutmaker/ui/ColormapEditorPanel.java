@@ -7,22 +7,30 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
 import java.util.List;
+import java.util.ArrayList;
 
 /**
  * Colormap editor with interactive handles for adding, moving, deleting and recoloring points.
  * Highlights the point under the mouse or dragged, shows tooltip with info.
+ * Synchronizes with other panels via ColormapChangeListener.
  */
 public class ColormapEditorPanel extends JPanel {
+    // Listener interface for sync with LabCurvesPanel
+    public interface ColormapChangeListener { void colormapChanged(); }
+
     private boolean movingPoint = false;
     private int currentDraggedPoint = -1;
-    private int hoverPoint = -1; // index du point sous la souris, -1 sinon
+    private int hoverPoint = -1;
     private Colormap colormap;
+    private TestImagePanel testImagePanel;
     private LUTPreviewPanel lutPreview;
-    private int selectedIdx = -1; // index of point being moved
+    private int selectedIdx = -1;
     private static final int HANDLE_RADIUS = 8;
+    private final List<ColormapChangeListener> listeners = new ArrayList<>();
 
-    public ColormapEditorPanel(Colormap colormap) {
+    public ColormapEditorPanel(Colormap colormap, TestImagePanel testImagePanel) {
         this.colormap = colormap;
+        this.testImagePanel = testImagePanel;
         setLayout(new BorderLayout());
         lutPreview = new LUTPreviewPanel(colormap.generateLUT());
         add(lutPreview, BorderLayout.CENTER);
@@ -33,6 +41,8 @@ public class ColormapEditorPanel extends JPanel {
         modeBox.addActionListener(e -> {
             colormap.setInterpolationMode((Colormap.InterpolationMode) modeBox.getSelectedItem());
             lutPreview.setLut(colormap.generateLUT());
+            testImagePanel.setLut(lutPreview.getLut());
+            fireColormapChanged();
             repaint();
         });
         add(modeBox, BorderLayout.NORTH);
@@ -61,6 +71,9 @@ public class ColormapEditorPanel extends JPanel {
                     if (newColor != null) {
                         cp.setRgb(new int[]{newColor.getRed(), newColor.getGreen(), newColor.getBlue()});
                         lutPreview.setLut(colormap.generateLUT());
+                        testImagePanel.setLut(lutPreview.getLut());
+
+                        fireColormapChanged();
                         repaint();
                     }
                 }
@@ -68,6 +81,9 @@ public class ColormapEditorPanel extends JPanel {
                 if (idx >= 0 && SwingUtilities.isRightMouseButton(e) && colormap.getPoints().size() > 2) {
                     colormap.removePoint(idx);
                     lutPreview.setLut(colormap.generateLUT());
+                    testImagePanel.setLut(lutPreview.getLut());
+
+                    fireColormapChanged();
                     repaint();
                 }
                 // Clic gauche hors point : ajouter point à cet endroit (interp couleur)
@@ -77,6 +93,9 @@ public class ColormapEditorPanel extends JPanel {
                     colormap.addPoint(new ColorPoint(pos, rgb));
                     colormap.getPoints().sort((a, b) -> Double.compare(a.getPosition(), b.getPosition()));
                     lutPreview.setLut(colormap.generateLUT());
+                    testImagePanel.setLut(lutPreview.getLut());
+
+                    fireColormapChanged();
                     repaint();
                 }
             }
@@ -112,19 +131,14 @@ public class ColormapEditorPanel extends JPanel {
                     List<ColorPoint> pts = colormap.getPoints();
                     ColorPoint cp = pts.get(selectedIdx);
 
-                    /* Facultatif : décommente pour forcer un écart minimum de 0.01 avec voisins
-                    if (selectedIdx > 0 && pos <= pts.get(selectedIdx - 1).getPosition() + 0.01)
-                        pos = pts.get(selectedIdx - 1).getPosition() + 0.01;
-                    if (selectedIdx < pts.size() - 1 && pos >= pts.get(selectedIdx + 1).getPosition() - 0.01)
-                        pos = pts.get(selectedIdx + 1).getPosition() - 0.01;
-                    */
-
                     cp.setPosition(pos);
                     colormap.getPoints().sort((a, b) -> Double.compare(a.getPosition(), b.getPosition()));
-                    // Corrige l'index si le point a changé de place dans la liste
                     int newIdx = pts.indexOf(cp);
                     if(newIdx != selectedIdx) { selectedIdx = newIdx; currentDraggedPoint = selectedIdx; }
                     lutPreview.setLut(colormap.generateLUT());
+                    testImagePanel.setLut(lutPreview.getLut());
+
+                    fireColormapChanged();
                     repaint();
                 }
             }
@@ -161,6 +175,8 @@ public class ColormapEditorPanel extends JPanel {
 
     public void updateColormap() {
         lutPreview.setLut(colormap.generateLUT());
+        testImagePanel.setLut(lutPreview.getLut());
+
         repaint();
     }
 
@@ -168,6 +184,17 @@ public class ColormapEditorPanel extends JPanel {
     public void setColormap(Colormap colormap) {
         this.colormap = colormap;
         updateColormap();
+    }
+
+    // Gestion des listeners (pour synchronisation bidirectionnelle)
+    public void addColormapChangeListener(ColormapChangeListener l) {
+        listeners.add(l);
+    }
+    public void removeColormapChangeListener(ColormapChangeListener l) {
+        listeners.remove(l);
+    }
+    private void fireColormapChanged() {
+        for (ColormapChangeListener l : listeners) l.colormapChanged();
     }
 
     // Helper to detect handle under mouse

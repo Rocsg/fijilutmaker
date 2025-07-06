@@ -46,7 +46,39 @@ public class ColorUtils {
     /**
      * Convert CIE Lab to RGB (0-255). May clip values if out of gamut.
      */
-    public static int[] labToRgb(double L, double a, double bLab) {
+    public static int[]lab2rgbDouble(double L, double a, double bLab) {
+        return labToRgb(L, a, bLab);    
+    }
+
+    public static int[]lab2rgbDouble(double []lab) {
+        double L = lab[0], a = lab[1], bLab = lab[2];
+        return labToRgb(L, a, bLab);
+    }
+
+
+    public static float[]rgb2labFloat(int r, int g, int b) {
+         double[] lab = rgbToLab(r, g, b);
+         return new float[]{(float)lab[0], (float)lab[1], (float)lab[2]};
+    }
+    public static float[]rgb2labFloat(int []rgb) {
+        double[] lab = rgbToLab(rgb[0], rgb[1], rgb[2]);
+        return new float[]{(float)lab[0], (float)lab[1], (float)lab[2]};
+    }
+    public static double[]rgb2lab(int r, int g, int b) {
+        return rgbToLab(r, g, b);
+    }
+    public static double[]rgb2lab(int []rgb) {
+        int r = rgb[0], g = rgb[1], b = rgb[2];
+        return rgbToLab(r, g, b);
+    }
+
+
+    public static int[] labToRgb(float[] lab) {
+        return labToRgb(lab[0], lab[1], lab[2]);
+    }
+
+
+     public static int[] labToRgb(double L, double a, double bLab) {
         // 1. Lab to XYZ
         double fy = (L + 16.0) / 116.0;
         double fx = a / 500.0 + fy;
@@ -136,4 +168,19 @@ public class ColorUtils {
         double ft3 = ft*ft*ft;
         return (ft3 > 0.008856) ? ft3 : (ft - 16.0/116.0) / 7.787;
     }
+
+    public static float[] rgbToLab(int[] rgb) {
+        double[] labD = rgbToLab(rgb[0], rgb[1], rgb[2]);
+        return new float[] { (float)labD[0], (float)labD[1], (float)labD[2] };
+    }
+
+    public static int[] labToRgb(float L, float a, float b) {
+        return labToRgb((double)L, (double)a, (double)b);
+    }
+
+    public static int[]lab2rgb(float []lab) {
+        double L = lab[0], a = lab[1], bLab = lab[2];
+        return labToRgb(L, a, bLab);
+    }
+
 }
